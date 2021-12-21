@@ -4,11 +4,11 @@ title: Data Analysis including 2020 and 2021 Season."Development of criteria for
 author: "Fernando Bortolozo"
 date: "10/29/2021"
 output:
+  pdf_document: default
+  word_document: default
   html_document: 
     toc: yes
     fig_caption: yes
-  word_document: default
-  pdf_document: default
 ---
 
 
