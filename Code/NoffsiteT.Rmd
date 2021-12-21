@@ -1,0 +1,498 @@
+---
+title: Data Analysis including 2020 and 2021 Season."Development of criteria for variable
+  N-fertilizer and irrigation management of potatoes"
+author: "Fernando Bortolozo"
+date: "10/29/2021"
+output:
+  html_document: 
+    toc: yes
+    fig_caption: yes
+  word_document: default
+  pdf_document: default
+---
+
+
+```{r, package_options, echo=FALSE, warning=FALSE, message=FALSE}
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(ExpDes)
+library(tidyverse)
+library(vtable)
+library(esquisse)
+library(dslabs)
+library(Hmisc)
+library(agricolae)
+library(agridat)
+library(devtools)
+library(ggfortify)
+library(MASS)
+library(car)
+library(RCurl)
+library(skimr)
+library(gtsummary)
+library(cowplot)
+library(ggstatsplot)
+library(hrbrthemes)
+library(table1)
+library(arsenal)
+library(ggstatsplot)
+library(multcompView)
+library(egg) 
+library(datasets)
+```
+
+# 1. Exploratory Analisys
+Total yield distribution across sites,irrigation methods and season for In-season decision, Grower's practice and UF/IFAS N-fertilizer application. The total yield response was 28687.47, 29676.20, and 29411.81 lbs./acre for fixed N application rate, grower's practice, and in-season decision N application respectively. There is no significant statistical difference between treatments. This results did not specify factor such as site, irrigation and year. 
+
+## **1.1 Summary**
+```{r, echo=FALSE}
+Alldata <- read_excel("~/Off-site N trial/Alldata.xlsx")
+dados<-(Alldata)
+#describe(dados)
+#par(mfrow=c(2,2))
+#truehist(dados$tyield)
+#truehist(log(dados$tyield))
+#qqPlot(dados$tyield)
+#title("Normal QQ-plot")
+#qqPlot(log(dados$tyield))
+#title("Normal QQ-plot")
+#plot.graph.freq(dados$tyield)
+
+summary(dados)
+shapiro.test(dados$tyield)
+
+```
+
+
+
+
+# 1.2. Total yield for Sseepage (SEP) and Subirrigation Drain Tile (SDT) 
+
+#### **Figure 1.**Total Yield Response considering N rates Fertilizer for Arlie and Parker accounting 2020 and 2021 Season for Seepage (SEP) Irr. System.
+```{r, echo=FALSE}
+Alldata %>%
+  filter(irrig %in% "SEEP") %>%
+  ggplot() +
+  aes(x = Trt_, y = tyield, fill = farm) +
+  geom_boxplot(shape = "circle") +
+  scale_fill_hue(direction = 1) +
+  coord_cartesian(ylim=c(10000, 50000)) + 
+  scale_y_continuous(breaks = seq (10000, 50000, 5000))+
+  labs(
+    x = "Treatments ",
+    y = "Yield (lbs./acre)",
+    title = "Seepage Yield data 2020 and 2021",
+    fill = "Farm ID"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(face = "bold",
+                              hjust = 0.5),
+    axis.title.y = element_text(size = 12L,
+                                face = "bold"),
+    axis.title.x = element_text(size = 12L,
+                                face = "bold")
+  ) +
+  facet_grid(vars(), vars(year))
+
+# Esquisse Plot TILE- Arlie and Parker 2020-2021
+
+Alldata %>%
+  filter(irrig %in% "TILE") %>%
+  ggplot() +
+  aes(x = Trt_, y = tyield, fill = farm) +
+  geom_boxplot(shape = "circle") +
+  scale_fill_hue(direction = 1) +
+  coord_cartesian(ylim=c(1000, 50000)) + 
+  scale_y_continuous(breaks = seq (1000, 50000, 5000))+
+  labs(
+    x = "Treatments ",
+    y = "Yield (lbs./acre)",
+    title = "Tile yield data 2020 and 2021",
+    fill = "Farm ID"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(face = "bold",
+                              hjust = 0.5),
+    axis.title.y = element_text(size = 12L,
+                                face = "bold"),
+    axis.title.x = element_text(size = 12L,
+                                face = "bold")
+  ) +
+  facet_grid(vars(), vars(year))
+
+```
+
+
+
+
+### **Anova and TukeyHSD test** 
+#### **Figure 2.** Total Yield distribution Across Farms, Irr. Systems, and Year for Each Treatment
+```{r, echo=FALSE}
+ggbetweenstats(
+  data = dados,
+  x = Trt,
+  y = tyield,
+  title = " ",
+  xlab = "Treatments",
+  ylab = "Total yield (lbs./acre)",
+)
+
+#> t is large; approximation invoked.
+
+```
+
+
+
+
+
+### **Pairwise test** 
+#### **Figure 2.** Total Yield distribution Across Farms, Irr. Systems, and Year for Each Treatment
+
+```{r, echo=FALSE}
+Alldata <- read_excel("~/Off-site N trial/Alldata.xlsx")
+dados<-(Alldata)
+#str (dados)
+#any(is.na())
+#head(dados)
+
+anova <- aov(tyield ~Trt, data = dados)
+summary(anova)
+
+tukey <- TukeyHSD(anova)
+print(tukey)
+
+cld <- multcompLetters4(anova, tukey)
+print(cld)
+
+Tk <- group_by (dados, Trt) %>%
+      summarise(mean=mean(tyield), quant = quantile(tyield, probs = 0.75)) %>%
+      arrange(desc(mean))
+
+cld <- as.data.frame.list(cld$Trt)
+Tk$cld <- cld$Letters
+print(Tk)
+
+ggplot(dados, aes(Trt, tyield)) + 
+  geom_boxplot(aes(fill = factor(..middle..)), show.legend = FALSE) +
+  labs(x="Treatments", y=" Total Yield (lbs/acre)") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_text(data = Tk, aes(x = Trt, y = quant, label = cld), size = 5, vjust=-1, hjust =-1) +
+  scale_fill_brewer(palette = "Blues")
+                
+ggsave("boxplot.png", width = 4, height = 6, dpi = 1000)
+
+
+
+```
+
+
+
+
+
+```{r eval=FALSE, include=FALSE}
+str(chickwts)
+
+# analysis of variance
+anova <- aov(weight ~ feed, data = chickwts)
+summary(anova)
+
+# Tukey's test
+tukey <- TukeyHSD(anova)
+print(tukey)
+
+# compact letter display
+cld <- multcompLetters4(anova, tukey)
+print(cld)
+
+# table with factors and 3rd quantile
+Tk <- group_by(chickwts, feed) %>%
+  summarise(mean=mean(weight), quant = quantile(weight, probs = 0.75)) %>%
+  arrange(desc(mean))
+
+# extracting the compact letter display and adding to the Tk table
+cld <- as.data.frame.list(cld$feed)
+Tk$cld <- cld$Letters
+
+print(Tk)
+
+# boxplot
+ggplot(chickwts, aes(feed, weight)) + 
+    geom_boxplot()
+# boxplot
+ggplot(chickwts, aes(feed, weight)) + 
+  geom_boxplot() +
+  labs(x="Feed Type", y="Weight (g)")
+# boxplot
+ggplot(chickwts, aes(feed, weight)) + 
+  geom_boxplot() +
+  labs(x="Feed Type", y="Weight (g)") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+# boxplot
+ggplot(chickwts, aes(feed, weight)) + 
+  geom_boxplot() +
+  labs(x="Feed Type", y="Weight (g)") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_text(data = Tk, aes(x = feed, y = quant, label = cld))
+
+# boxplot
+ggplot(chickwts, aes(feed, weight)) + 
+  geom_boxplot() +
+  labs(x="Feed Type", y="Weight (g)") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_text(data = Tk, aes(x = feed, y = quant, label = cld), size = 3, vjust=-1, hjust =-1)
+
+# boxplot
+ggplot(chickwts, aes(feed, weight)) + 
+  geom_boxplot(fill = "lightblue", color = "darkblue") +
+  labs(x="Feed Type", y="Weight (g)") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_text(data = Tk, aes(x = feed, y = quant, label = cld), size = 3, vjust=-1, hjust =-1, color = "darkblue")
+
+
+# boxplot
+ggplot(chickwts, aes(feed, weight)) + 
+  geom_boxplot(aes(fill = feed)) +
+  labs(x="Feed Type", y="Weight (g)") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_text(data = Tk, aes(x = feed, y = quant, label = cld), size = 3, vjust=-1, hjust =-1)
+
+
+# boxplot
+ggplot(chickwts, aes(feed, weight)) + 
+  geom_boxplot(aes(fill = feed), show.legend = FALSE) +
+  labs(x="Feed Type", y="Weight (g)") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_text(data = Tk, aes(x = feed, y = quant, label = cld), size = 3, vjust=-1, hjust =-1) +
+  scale_fill_brewer(palette = "Pastel1")
+
+
+# boxplot
+ggplot(chickwts, aes(feed, weight)) + 
+  geom_boxplot(aes(fill = factor(..middle..)), show.legend = FALSE) +
+  labs(x="AAAAA", y="Weight (g)") +
+  theme_bw() + 
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  geom_text(data = Tk, aes(x = feed, y = quant, label = cld), size = 6, vjust=-1, hjust =-1) +
+  scale_fill_brewer(palette = "Blues")
+
+```
+
+
+ 3. Total yield
+ 
+#### **Figure 3.**Total Yield Response considering N rates Fertilizer for Arlie and Parker accounting 2020 and 2021 Season for Tile (SDT) Irr. System.
+
+
+# Total Yield Response for N rates for SEP on Parker at 2020
+
+```{r, echo=FALSE}
+#Parker SEP (2020)
+Parker1a <- filter(dados, year =="2020", irrig =="SEEP", farm =="Parker")
+#str(Parker1a)
+#View(Parker1a)
+#class(Parker1a)
+rbd(Parker1a$Trt_,Parker1a$block,Parker1a$tyield,quali = TRUE, nl = FALSE,hvar = "oneillmathews",sigT = 0.05,sigF = 0.05,unfold = NULL)
+#set option for browser 
+options("esquisse.display.mode" ="browser")
+#set option for Rstudio dialog window
+options("esquisse.display.mode" = "dialog")
+
+#Esquisse plot 
+Parker1a %>%
+  filter(irrig %in% "SEEP") %>%
+  ggplot() +
+  aes(x = Trt, y = tyield, fill = farm) +
+  geom_boxplot(shape = "circle") +
+  scale_fill_hue(direction = 1) +
+  coord_cartesian(ylim=c(1000, 50000)) + 
+  scale_y_continuous(breaks = seq (1000, 50000, 5000))+
+  labs(
+    x = "Treatments ",
+    y = "Yield (lbs./acre)",
+    title = "Total Yield Across N rates for SEP on Parker at 2020",
+    fill = "Farm ID"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(face = "bold",
+                              hjust = 0.5),
+    axis.title.y = element_text(size = 12L,
+                                face = "bold"),
+    axis.title.x = element_text(size = 12L,
+                                face = "bold")
+  ) +
+  facet_grid(vars(), vars(year))
+
+ggbetweenstats(
+  data = Parker1a,
+  x = Trt_,
+  y = tyield,
+  title = "Distribution of Total Yield Across N rates for SEP on Parker at 2020"
+)
+
+
+
+
+
+```
+
+
+# Total Yield Response for N rates for SEP on Parker at 2021
+
+```{r, echo=FALSE}
+#Parker SEP (2021)
+Parker1b <- filter(dados, year =="2021", irrig =="SEEP", farm =="Parker")
+#str(Parker1b)
+#View(Parker1b)
+#class(Parker1b)
+rbd(Parker1b$Trt_,Parker1b$block,Parker1b$tyield,quali = TRUE, nl = FALSE,hvar = "oneillmathews",sigT = 0.05,sigF = 0.05,unfold = NULL)
+
+# plot
+Parker1b %>%
+  filter(irrig %in% "SEEP") %>%
+  ggplot() +
+  aes(x = Trt, y = tyield, fill = farm) +
+  geom_boxplot(shape = "circle") +
+  scale_fill_hue(direction = 1) +
+  coord_cartesian(ylim=c(1000, 50000)) + 
+  scale_y_continuous(breaks = seq (1000, 50000, 5000))+
+  labs(
+    x = "Treatments ",
+    y = "Yield (lbs./acre)",
+    title = "Total Yield Across N rates for SEP on Parker at 2021",
+    fill = "Farm ID"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(face = "bold",
+                              hjust = 0.5),
+    axis.title.y = element_text(size = 12L,
+                                face = "bold"),
+    axis.title.x = element_text(size = 12L,
+                                face = "bold")
+  ) +
+  facet_grid(vars(), vars(year))
+            
+# plot
+ggbetweenstats(
+  data = Parker1b,
+  x = Trt_,
+  y = tyield,
+  title = "Distribution of Total Yield Across N rates for SEP on Parker at 2020"
+)
+```
+
+
+# Total Yield Response for N rates for SEP on Smith at 2020
+
+```{r, echo=FALSE}
+Alldata <- read_excel("~/Off-site N trial/Alldata.xlsx")
+view(Alldata)
+dadosm<-(Alldata)
+str(dadosm)
+Smith1a <- filter(dadosm, year =="2020", irrig =="SEEP", farm =="Arlie")
+#dados1a
+#str(dados1a)
+#View(dados1a)
+#class(dados1a)
+rbd(Smith1a$Trt_,Smith1a$block,Smith1a$tyield,quali = TRUE, nl = FALSE,hvar = "oneillmathews",sigT = 0.05,sigF = 0.05,unfold = NULL)
+
+
+#plot
+Smith1a %>%
+  filter(irrig %in% "SEEP") %>%
+  ggplot() +
+  aes(x = Trt_, y = tyield, fill = farm) +
+  geom_boxplot(shape = "circle") +
+  scale_fill_hue(direction = 1) +
+  coord_cartesian(ylim=c(1000, 50000)) + 
+  scale_y_continuous(breaks = seq (1000, 50000, 5000))+
+  labs(
+    x = "Treatments ",
+    y = "Yield (lbs./acre)",
+    title = "Total Yield Across N rates for SEP on Smith at 2020",
+    fill = "Farm ID"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(face = "bold",
+                              hjust = 0.5),
+    axis.title.y = element_text(size = 12L,
+                                face = "bold"),
+    axis.title.x = element_text(size = 12L,
+                                face = "bold")
+  ) +
+  facet_grid(vars(), vars(year))
+            
+# plot
+ggbetweenstats(
+  data = Smith1a,
+  x = Trt_,
+  y = tyield,
+  title = "Distribution of Total Yield Across N rates for SEP on Parker at 2020"
+)
+```
+
+# Total Yield Response for N rates for SEP on Smith at 2021
+
+
+```{r, echo=FALSE}
+Alldata <- read_excel("~/Off-site N trial/Alldata.xlsx")
+#view(Alldata)
+dadosm<-(Alldata)
+#str(dadosm)
+Smith1b <- filter(dadosm, year =="2020", irrig =="SEEP", farm =="Arlie")
+#dados1a
+#str(dados1a)
+#View(dados1a)
+#class(dados1a)
+rbd(Smith1a$Trt_,Smith1a$block,Smith1a$tyield,quali = TRUE, nl = FALSE,hvar = "oneillmathews",sigT = 0.05,sigF = 0.05,unfold = NULL)
+
+
+#plot
+Smith1a %>%
+  filter(irrig %in% "SEEP") %>%
+  ggplot() +
+  aes(x = Trt_, y = tyield, fill = farm) +
+  geom_boxplot(shape = "circle") +
+  scale_fill_hue(direction = 1) +
+  coord_cartesian(ylim=c(1000, 50000)) + 
+  scale_y_continuous(breaks = seq (1000, 50000, 5000))+
+  labs(
+    x = "Treatments ",
+    y = "Yield (lbs./acre)",
+    title = "Total Yield Across N rates for SEP on Smith at 2021",
+    fill = "Farm ID"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(face = "bold",
+                              hjust = 0.5),
+    axis.title.y = element_text(size = 12L,
+                                face = "bold"),
+    axis.title.x = element_text(size = 12L,
+                                face = "bold")
+  ) +
+  facet_grid(vars(), vars(year))
+            
+# plot
+ggbetweenstats(
+  data = Smith1a,
+  x = Trt_,
+  y = tyield,
+  title = "Distribution of Total Yield Across N rates for SEP on Smith at 2021"
+)
+
+
+```
+
